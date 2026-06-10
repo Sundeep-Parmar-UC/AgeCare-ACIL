@@ -133,7 +133,7 @@ def calculate_budget_value(SiteName, LedgerColumnIndex, TargetCategory, BudgetSh
     elif TargetCategory == "SUPPLIES":
         return (calculate_budget_sum_general(SiteName, LedgerColumnIndex, "6500:Care Supplies", BudgetSheetData) + calculate_budget_sum_general(SiteName, LedgerColumnIndex, "6600:Clinical supplies", BudgetSheetData))
     elif TargetCategory == "SUM":
-        return (calculate_budget_sum_of_Repair_Maintence(SiteName, LedgerColumnIndex, "Repair", BudgetSheetData) + calculate_budget_sum_of_Repair_Maintence(SiteName, LedgerColumnIndex, "Maintenance", BudgetSheetData))
+        return (calculate_budget_sum_of_Repair_Maintence(SiteName, LedgerColumnIndex, "Repair", BudgetSheetData) + calculate_budget_sum_of_Repair_Maintence(SiteName, LedgerColumnIndex, "Maintenance", BudgetSheetData) + calculate_budget_sum_of_Other_RnM(SiteName, LedgerColumnIndex, BudgetSheetData))
     elif TargetCategory == "Other (RnM)":
         return calculate_budget_sum_of_Other_RnM(SiteName, LedgerColumnIndex, BudgetSheetData)
     else:
@@ -251,6 +251,47 @@ def calculate_budget_sum_of_Repair_Maintence_ACIL(LedgerColumnIndex, TargetColum
             continue
     return total_sum
 
+def calculate_budget_sum_of_Other_RnM_ACIL(LedgerColumnIndex, TargetColumnIndex, BudgetSheetData):
+     # 1. SCAN + FILTER logic: Loop through rows to find matching section and sub-category
+    total_sum = 0.0
+    in_target_section = False
+
+    for i in range(BudgetSheetData.shape[0]):
+        try:
+            # Clean the Column A value for evaluation
+            cell_a_value = str(BudgetSheetData.iloc[i, LedgerColumnIndex]).strip()
+            #print("1cell_a_value:",cell_a_value)
+            # Replicate the SCAN toggle behavior
+            if cell_a_value == "6700:Repair & Maintenance":
+                #print("2cell_a_value:",cell_a_value)
+                in_target_section = True
+                continue
+            elif in_target_section and ":" in cell_a_value:
+                #print("3cell_a_value:",cell_a_value)
+                # Any row with a colon (a new header) turns the toggle off
+                in_target_section = False
+            elif in_target_section and "Marketing & Advertising" in cell_a_value:
+                #print("4cell_a_value:",cell_a_value)
+                # Found a title of next section; turn off the switch
+                in_target_section = False
+
+            if in_target_section:
+              #print("6cell_a_value:",cell_a_value)
+              is_other_rnm_category = not (cell_a_value.startswith("Repair") or cell_a_value.startswith("Maintenance"))
+              #print("5is_other_rnm_category:",is_other_rnm_category)
+              if is_other_rnm_category:
+                # Extract value from MonthColumn and add to total, handling non-numeric data
+                total_sum += pd.to_numeric(BudgetSheetData.iloc[i, TargetColumnIndex], errors='coerce')
+                #print("6total_sum:",total_sum)
+                print("7DataWorkSheet.iloc[i, TargetColumnIndex], i:",i,"  TargetColumnIndex: ",TargetColumnIndex,"  cell_a_value:",cell_a_value)
+
+        except (IndexError, ValueError, TypeError):
+            # Gracefully ignore empty rows, text conversion errors, or short rows
+            continue
+
+    return total_sum
+
+
 def calculate_budget_value_ACIL(LedgerColumnIndex, TargetColumnIndex, TargetCategory, BudgetSheetData):
     StraightBudgetSumCategory = ["Sick Time", "Overtime", "Purchased Hours", "6500:Care Supplies", "6600:Clinical supplies", "6700:Repair & Maintenance"]
     if TargetCategory in StraightBudgetSumCategory:
@@ -260,7 +301,9 @@ def calculate_budget_value_ACIL(LedgerColumnIndex, TargetColumnIndex, TargetCate
     elif TargetCategory == "SUPPLIES":
         return (calculate_budget_sum_general_ACIL(LedgerColumnIndex, TargetColumnIndex,  "6500:Care Supplies", BudgetSheetData) + calculate_budget_sum_general_ACIL(LedgerColumnIndex, TargetColumnIndex,  "6600:Clinical supplies", BudgetSheetData))
     elif TargetCategory == "SUM":
-        return (calculate_budget_sum_of_Repair_Maintence_ACIL(LedgerColumnIndex, TargetColumnIndex,  "Repair", BudgetSheetData) + calculate_budget_sum_of_Repair_Maintence_ACIL(LedgerColumnIndex, TargetColumnIndex,  "Maintenance", BudgetSheetData))
+        return (calculate_budget_sum_of_Repair_Maintence_ACIL(LedgerColumnIndex, TargetColumnIndex,  "Repair", BudgetSheetData) + calculate_budget_sum_of_Repair_Maintence_ACIL(LedgerColumnIndex, TargetColumnIndex,  "Maintenance", BudgetSheetData)+ calculate_budget_sum_of_Other_RnM_ACIL(LedgerColumnIndex, TargetColumnIndex, BudgetSheetData))
+    elif TargetCategory == "Other (RnM)":
+        return calculate_budget_sum_of_Other_RnM_ACIL(LedgerColumnIndex, TargetColumnIndex, BudgetSheetData)
     else:
         return -1000000
 
