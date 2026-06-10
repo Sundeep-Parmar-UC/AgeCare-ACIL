@@ -134,6 +134,8 @@ def calculate_budget_value(SiteName, LedgerColumnIndex, TargetCategory, BudgetSh
         return (calculate_budget_sum_general(SiteName, LedgerColumnIndex, "6500:Care Supplies", BudgetSheetData) + calculate_budget_sum_general(SiteName, LedgerColumnIndex, "6600:Clinical supplies", BudgetSheetData))
     elif TargetCategory == "SUM":
         return (calculate_budget_sum_of_Repair_Maintence(SiteName, LedgerColumnIndex, "Repair", BudgetSheetData) + calculate_budget_sum_of_Repair_Maintence(SiteName, LedgerColumnIndex, "Maintenance", BudgetSheetData))
+    elif TargetCategory == "Other (RnM)":
+        return calculate_budget_sum_of_Other_RnM(SiteName, LedgerColumnIndex, BudgetSheetData)
     else:
         return -1000000
 
@@ -164,6 +166,61 @@ def calculate_budget_sum_of_Repair_Maintence(SiteName, LedgerColumnIndex, Target
         except (IndexError, ValueError, TypeError):
             continue
     return total_sum
+
+def calculate_budget_sum_of_Other_RnM(SiteName, LedgerColumnIndex, BudgetSheetData):
+
+    # 1. MATCH logic: Find the target data column using the first 3 characters
+    match_str = str(SiteName)[:3].strip().upper()
+    header_row = BudgetSheetData.iloc[14] # Excel row 15 is index 14
+
+    target_col_idx = -1
+    for col_idx, cell_value in enumerate(header_row):
+        if str(cell_value)[:3].strip().upper() == match_str:
+            target_col_idx = col_idx
+            break
+
+    if target_col_idx == -1:
+        return 0.0 # Column header not found
+
+    # 2. SCAN + FILTER logic: Loop through rows to find matching section and sub-category
+    total_sum = 0.0
+    in_target_section = False
+
+    for i in range(BudgetSheetData.shape[0]):
+        try:
+            # Clean the Column A value for evaluation
+            cell_a_value = str(BudgetSheetData.iloc[i, LedgerColumnIndex]).strip()
+            #print("1cell_a_value:",cell_a_value)
+            # Replicate the SCAN toggle behavior
+            if cell_a_value == "6700:Repair & Maintenance":
+                #print("2cell_a_value:",cell_a_value)
+                in_target_section = True
+                continue
+            elif in_target_section and ":" in cell_a_value:
+                #print("3cell_a_value:",cell_a_value)
+                # Any row with a colon (a new header) turns the toggle off
+                in_target_section = False
+            elif in_target_section and "Marketing & Advertising" in cell_a_value:
+                #print("4cell_a_value:",cell_a_value)
+                # Found a title of next section; turn off the switch
+                in_target_section = False
+
+            if in_target_section:
+              #print("6cell_a_value:",cell_a_value)
+              is_other_rnm_category = not (cell_a_value.startswith("Repair") or cell_a_value.startswith("Maintenance"))
+              #print("5is_other_rnm_category:",is_other_rnm_category)
+              if is_other_rnm_category:
+                # Extract value from MonthColumn and add to total, handling non-numeric data
+                total_sum += pd.to_numeric(BudgetSheetData.iloc[i, target_col_idx], errors='coerce')
+                #print("6total_sum:",total_sum)
+                #print("7DataWorkSheet.iloc[i, target_col_idx], i:",i,"  target_col_idx: ",target_col_idx,"  cell_a_value:",cell_a_value)
+
+        except (IndexError, ValueError, TypeError):
+            # Gracefully ignore empty rows, text conversion errors, or short rows
+            continue
+
+    return total_sum
+
 
 def calculate_budget_sum_general_ACIL(LedgerColumnIndex, TargetColumnIndex, TargetCategory, BudgetSheetData):
     total_sum = 0.0
