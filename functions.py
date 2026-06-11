@@ -329,3 +329,28 @@ def get_contrasting_font_color(bg_hex_color):
     b /= 255.0
     h, l, s = colorsys.rgb_to_hls(r, g, b)
     return '#000000' if l > 0.5 else '#FFFFFF'
+
+
+def FindFinCatColumn(DataWorkSheet):
+  FinCat_col = 1000
+  for r_idx, row in DataWorkSheet.iterrows():
+      for c_idx, value in row.items():
+          if isinstance(value, str) and value == "Actual":
+              if(c_idx < FinCat_col):
+                FinCat_col = c_idx
+              continue
+  return FinCat_col
+  
+  
+def FindSiteColumnFromMonth(DataWorkSheet,Site):
+  site_row = -1
+  site_col = -1
+  for r_idx, row in DataWorkSheet.iterrows():
+      for c_idx, value in row.items():
+          if isinstance(value, str) and value.strip().upper() == Site.strip().upper():
+              site_row = r_idx
+              site_col = c_idx
+              break
+      if site_row != -1:
+          break
+  return site_row, site_col 
