@@ -283,7 +283,7 @@ def calculate_budget_sum_of_Other_RnM_ACIL(LedgerColumnIndex, TargetColumnIndex,
                 # Extract value from MonthColumn and add to total, handling non-numeric data
                 total_sum += pd.to_numeric(BudgetSheetData.iloc[i, TargetColumnIndex], errors='coerce')
                 #print("6total_sum:",total_sum)
-                print("7DataWorkSheet.iloc[i, TargetColumnIndex], i:",i,"  TargetColumnIndex: ",TargetColumnIndex,"  cell_a_value:",cell_a_value)
+                #print("7DataWorkSheet.iloc[i, TargetColumnIndex], i:",i,"  TargetColumnIndex: ",TargetColumnIndex,"  cell_a_value:",cell_a_value)
 
         except (IndexError, ValueError, TypeError):
             # Gracefully ignore empty rows, text conversion errors, or short rows
