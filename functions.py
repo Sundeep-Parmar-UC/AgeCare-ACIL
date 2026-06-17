@@ -354,3 +354,205 @@ def FindSiteColumnFromMonth(DataWorkSheet,Site):
       if site_row != -1:
           break
   return site_row, site_col 
+
+  
+def OntarioFundingCheck(FundName):
+
+    FundMapping = {}
+    FundMapping['Ontario 4 hours of Care']='Funded'
+    FundMapping['Ontario Allied health Professional']='Funded'
+    FundMapping['Ontario Behaviour Supports Ontario   (BSO)']='Funded'
+    FundMapping['Ontario Behaviour Supports Ontario - OHP/AHP  (BSO)']='Funded'
+    FundMapping['Ontario Behaviour Supports Training & Education (BSO Training)']='Funded'
+    FundMapping['Ontario Clinical Decision Support funding']='Funded'
+    FundMapping['Ontario Convalescent funding']='Funded'
+    FundMapping['Ontario Covid Additional PPE funding']='Funded'
+    FundMapping['Ontario Covid prevention and containment funding']='Funded'
+    FundMapping['Ontario Equipment & Training']='Funded'
+    FundMapping['Ontario Fall Prevention Equipment funding']='Funded'
+    FundMapping['Ontario Ipac Minor capital']='Funded'
+    FundMapping['Ontario Ipac Personnel']='Funded'
+    FundMapping['Ontario IPAC Training & Education funding']='Funded'
+    FundMapping['Ontario Lab Cost']='Funded'
+    FundMapping['Ontario Local Priority Funding']='Funded'
+    FundMapping['Ontario LTC Minor capital']='Funded'
+    FundMapping['Ontario Medical Safety Technology (MST)']='Funded'
+    FundMapping['Ontario Nurse Practioner funding (NP)']='Funded'
+    FundMapping['Ontario Nursing and Personal Care (NPC)']='Funded'
+    FundMapping['Ontario Nutrional support (NS or previously known as Raw food)']='Funded'
+    FundMapping['Ontario Permanent $3 PSW']='Funded'
+    FundMapping['Ontario Physician on Call funding']='Funded'
+    FundMapping['Ontario Professional growth']='Funded'
+    FundMapping['Ontario Program support services (PSS)']='Funded'
+    FundMapping['Ontario Resident Health & Wellness']='Funded'
+    FundMapping['Ontario Temporary $3 PSW']='Funded'
+    FundMapping['Ontario TRIN (Temporary retention incentive for Nurses)']='Funded'
+    FundMapping['Palliative Care']='Funded'
+    FundMapping['(Blank)']='UnFunded'
+    FundMapping['Alberta Baseline Funding']='UnFunded'
+    FundMapping['Fundraising and Donation']='UnFunded'
+    FundMapping['Ontario HIN']='UnFunded'
+    FundMapping['Ontario Other Accomodation (OA)']='UnFunded'
+    FundMapping['Private Revenue']='UnFunded'
+    FundMapping['Alberta Accommodation Funding']='UnFunded'
+    FundMapping['British Columbia Equipcare Funding']='UnFunded'
+    FundMapping['Ontario Construction Funding']='Funded'
+    FundMapping['$4 premium for NPC Direct care staff - program no longer exist']='UnFunded'
+
+    if FundName in FundMapping:
+      return FundMapping[FundName]
+    else:
+      return "UnFunded"
+
+
+def OntarioSuppliesCheck(PayrollValue,LedgerValue,RevenueCategory,SpendCategory,BusStream):
+    if (PayrollValue == "(Blank)"):
+      if(RevenueCategory == "(Blank)"):
+        if(BusStream == "Retirement Living"):  # RL
+          if(LedgerValue == "6500:Care Supplies"):
+            if(SpendCategory == "Nursing supplies"):
+              return True
+            elif(SpendCategory == "Incontinence"):
+              return True
+
+          elif(LedgerValue == "6600:Clinical supplies"):
+            if(SpendCategory == "Recreation Supplies"):
+              return True
+
+          elif(LedgerValue == "6800:Hospitality"):
+            if(SpendCategory == "Kitchen Supplies"):
+              return True
+            elif(SpendCategory == "Housekeeping - Supplies"):
+              return True
+            elif(SpendCategory == "Laundry Supplies"):
+              return True
+
+        else:  #Bus Stream is LTC
+          if(LedgerValue == "6500:Care Supplies"):
+            if(SpendCategory == "Nursing supplies"):
+              return True
+            elif(SpendCategory == "HIN Expense"):
+              return True
+
+          elif(LedgerValue == "6600:Clinical supplies"):
+            if(SpendCategory == "Recreation Supplies"):
+              return True
+            elif(SpendCategory == "Eden Initiative"):
+              return True
+
+          elif(LedgerValue == "6700:Repair & Maintenance"):
+            if(SpendCategory == "Housekeeping - Supplies"):
+              return True
+            elif(SpendCategory == "Laundry Supplies"):
+              return True
+
+          elif(LedgerValue == "6800:Hospitality"):
+            if(SpendCategory == "Kitchen Supplies"):
+              return True
+            elif(SpendCategory == "Housekeeping - Supplies"):
+              return True
+            elif(SpendCategory == "Laundry Supplies"):
+              return True
+            elif(SpendCategory == "Kitchen Smallwares"):
+              return True
+            elif(SpendCategory == "Housekeeping - Linens"):
+              return True
+            elif(SpendCategory == "Housekeeping - Cleaning Agents"):
+              return True
+            elif(SpendCategory == "Kitchen Cleaning"):
+              return True
+
+    return False
+
+
+def calculate_sum_of_SUPPLIES(DataWorkSheet, PayrollOrgColumnIndex, LedgerColumnIndex, FundColumnsIndex, BusinessSteamIndex, SpendCategoryIndex, RevenueCategoryIndex, SiteListIndex, ValuesIndex, SiteName):
+    filtered_Category_df = DataWorkSheet[
+        (DataWorkSheet[SiteListIndex].astype(str).str[0:3] == SiteName)
+    ]
+    total_sum = 0
+    #walk through all values in the FundColumnindex,  if it maps to Unfunded then check if Supplies is true then add the Valueindex column to total sum
+    for index, row in filtered_Category_df.iterrows():
+      if OntarioFundingCheck(row[FundColumnsIndex]) == "UnFunded":
+          if OntarioSuppliesCheck(row[PayrollOrgColumnIndex],row[LedgerColumnIndex],row[RevenueCategoryIndex],row[SpendCategoryIndex],row[BusinessSteamIndex]):
+              total_sum += row[ValuesIndex]
+
+    return total_sum
+
+
+def calculate_sum_by_category_IrisRecency(DataWorkSheet, SpendCategoryIndex, SiteListIndex, ValuesIndex, SiteName, Category):
+    filtered_Category_df = DataWorkSheet[
+        (DataWorkSheet[SpendCategoryIndex].astype(str) == Category)
+    ]
+    filtered_Site_Cat_df = filtered_Category_df[
+        (filtered_Category_df[SiteListIndex].astype(str).str[0:3] == SiteName)
+    ]
+    total_sum = filtered_Site_Cat_df[ValuesIndex].apply(pd.to_numeric, errors='coerce').sum()
+    return total_sum
+
+
+def calculate_sum_by_Fund_Unfund_IrisRecency(DataWorkSheet, LedgerColumnIndex, FundColumnsIndex, SiteListIndex, ValuesIndex, SiteName, Category):
+    filtered_Category_df = DataWorkSheet[
+        (DataWorkSheet[LedgerColumnIndex].astype(str) == "6700:Repair & Maintenance")
+    ]
+    filtered_Site_Cat_df = filtered_Category_df[
+        (filtered_Category_df[SiteListIndex].astype(str).str[0:3] == SiteName)
+    ]
+    total_sum = 0
+    #walk through all values in the FundColumnindex,  if it maps to Category then add the Valueindex column to total sum
+    for index, row in filtered_Site_Cat_df.iterrows():
+      if OntarioFundingCheck(row[FundColumnsIndex]) == Category:
+        total_sum += row[ValuesIndex]
+
+    return total_sum    
+
+
+def calculate_value_IrisRecency(DataWorkSheet, PayrollOrgColumnIndex, LedgerColumnIndex, FundColumnsIndex, BusinessSteamIndex, SpendCategoryIndex, RevenueCategoryIndex, SiteListIndex, ValuesIndex, SiteName, Category):
+    StraightSumCategory = ["Sick Time", "Overtime"]
+    if Category in StraightSumCategory:
+        return calculate_sum_by_category_IrisRecency(DataWorkSheet, SpendCategoryIndex, SiteListIndex, ValuesIndex, SiteName, Category)
+    elif Category == "Purchased Hours" or Category == "Purchased Hours total":
+        NewSumTotal = calculate_sum_by_category_IrisRecency(DataWorkSheet, SpendCategoryIndex, SiteListIndex, ValuesIndex, SiteName, "Purchased Hours")
+        NewPodTotal = calculate_sum_by_category_IrisRecency(DataWorkSheet, RevenueCategoryIndex, SiteListIndex, ValuesIndex, SiteName, "Podiatry")
+        return NewSumTotal + NewPodTotal
+    elif Category == "6500:Care Supplies":
+      return calculate_sum_by_category_IrisRecency(DataWorkSheet, LedgerColumnIndex, SiteListIndex, ValuesIndex, SiteName, "6500:Care Supplies") + calculate_sum_by_category_IrisRecency(DataWorkSheet, LedgerColumnIndex, SiteListIndex, ValuesIndex, SiteName, "6600:Clinical supplies")
+    elif Category == "Repair":
+        return calculate_sum_by_Fund_Unfund_IrisRecency(DataWorkSheet, LedgerColumnIndex, FundColumnsIndex, SiteListIndex, ValuesIndex, SiteName, "Funded")
+    elif Category == "Maintenance":
+        return calculate_sum_by_Fund_Unfund_IrisRecency(DataWorkSheet, LedgerColumnIndex, FundColumnsIndex, SiteListIndex, ValuesIndex, SiteName, "UnFunded")
+    elif Category == "SUPPLIES":
+        return calculate_sum_of_SUPPLIES(DataWorkSheet, PayrollOrgColumnIndex, LedgerColumnIndex, FundColumnsIndex, BusinessSteamIndex, SpendCategoryIndex, RevenueCategoryIndex, SiteListIndex, ValuesIndex, SiteName)
+    else:
+        return 0
+
+
+def calculate_sum_Overtime_Budget_IrisRecency(DataWorkSheet, LedgerColumnIndex, SiteListIndex, ValuesIndex, SiteName):
+    filtered_Category_df = DataWorkSheet[
+        (DataWorkSheet[LedgerColumnIndex].astype(str) == "6000:Salaries and wages")
+    ]
+    filtered_Site_Cat_df = filtered_Category_df[
+        (filtered_Category_df[SiteListIndex].astype(str).str[0:3] == SiteName)
+    ]
+    total_sum = filtered_Site_Cat_df[ValuesIndex].apply(pd.to_numeric, errors='coerce').sum()
+    return total_sum
+
+
+def calculate_value_Budget_IrisRecency(DataWorkSheet, PayrollOrgColumnIndex, LedgerColumnIndex, FundColumnsIndex, BusinessSteamIndex, SpendCategoryIndex, RevenueCategoryIndex, SiteListIndex, ValuesIndex, SiteName, Category):
+    if Category == "Sick Time":
+        return calculate_sum_by_category_IrisRecency(DataWorkSheet, SpendCategoryIndex, SiteListIndex, ValuesIndex, SiteName, Category)
+    elif Category == "Overtime":
+        return 0.012*calculate_sum_Overtime_Budget_IrisRecency(DataWorkSheet, LedgerColumnIndex, SiteListIndex, ValuesIndex, SiteName)
+    elif Category == "Purchased Hours" or Category == "Purchased Hours total":
+        return calculate_sum_by_category_IrisRecency(DataWorkSheet, SpendCategoryIndex, SiteListIndex, ValuesIndex, SiteName, "Purchased Hours")
+    elif Category == "6500:Care Supplies":
+      return calculate_sum_by_category_IrisRecency(DataWorkSheet, LedgerColumnIndex, SiteListIndex, ValuesIndex, SiteName, "6500:Care Supplies") + calculate_sum_by_category_IrisRecency(DataWorkSheet, LedgerColumnIndex, SiteListIndex, ValuesIndex, SiteName, "6600:Clinical supplies")
+    elif Category == "Repair":
+        return calculate_sum_by_Fund_Unfund_IrisRecency(DataWorkSheet, LedgerColumnIndex, FundColumnsIndex, SiteListIndex, ValuesIndex, SiteName, "Funded")
+    elif Category == "Maintenance":
+        return calculate_sum_by_Fund_Unfund_IrisRecency(DataWorkSheet, LedgerColumnIndex, FundColumnsIndex, SiteListIndex, ValuesIndex, SiteName, "UnFunded")
+    elif Category == "SUPPLIES":
+        return calculate_sum_of_SUPPLIES(DataWorkSheet, PayrollOrgColumnIndex, LedgerColumnIndex, FundColumnsIndex, BusinessSteamIndex, SpendCategoryIndex, RevenueCategoryIndex, SiteListIndex, ValuesIndex, SiteName)
+    else:
+        return 0
+    
+    
