@@ -3,6 +3,56 @@ import pandas as pd
 import re
 import colorsys
 import numpy as np
+import zipfile
+import xml.etree.ElementTree as ET
+import random
+
+def delete_external_links(WorkBookHandle):
+# Check for and remove external links
+    if hasattr(WorkBookHandle, '_external_links') and WorkBookHandle._external_links:
+        #print(f"Found {len(WorkBookHandle._external_links)} external links. Attempting to remove them.")
+        WorkBookHandle._external_links = [] # Clear the list of external links
+
+def remove_defined_names_from_workbook_xml(excel_file_path):
+    # Create a temporary list to store files and their content
+    temp_zip_contents = []
+
+    # Open the Excel file as a zip archive for reading
+    with zipfile.ZipFile(excel_file_path, 'r') as zf_read:
+        for file_info in zf_read.infolist():
+            file_name = file_info.filename
+            file_content = zf_read.read(file_name)
+
+            if file_name == 'xl/workbook.xml':
+                # Parse the XML content
+                root = ET.fromstring(file_content)
+
+                # Find and remove the 'definedNames' element
+                defined_names_element = root.find('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}definedNames')
+                if defined_names_element is not None:
+                    root.remove(defined_names_element)
+                    #print(f"Removed <definedNames> element from {excel_file_path}'s workbook.xml.")
+
+                # Convert the modified XML back to a string (UTF-8 encoded)
+                modified_xml_content = ET.tostring(root, encoding='utf-8', xml_declaration=True)
+                temp_zip_contents.append((file_name, modified_xml_content))
+            else:
+                temp_zip_contents.append((file_name, file_content))
+
+    # Re-create the zip file with the modified workbook.xml
+    with zipfile.ZipFile(excel_file_path, 'w', zipfile.ZIP_DEFLATED) as zf_write:
+        for file_name, file_content in temp_zip_contents:
+            zf_write.writestr(file_name, file_content)
+
+    #print(f"Successfully re-saved '{excel_file_path}' with modified workbook.xml (definedNames removed).")
+
+    # Verify by printing the workbook.xml again
+    with zipfile.ZipFile(excel_file_path, 'r') as zf:
+        workbook_xml_content = zf.read('xl/workbook.xml')
+        #print("\n--- New workbook.xml content after modification ---")
+        #print(workbook_xml_content.decode('utf-8'))
+
+
 
 def FindLedgerColumn(DataWorkSheet):
   ledger_account_col = 1000
