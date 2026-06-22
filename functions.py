@@ -6,6 +6,8 @@ import numpy as np
 import zipfile
 import xml.etree.ElementTree as ET
 import random
+from openpyxl.utils import get_column_letter, column_index_from_string
+
 
 def delete_external_links(WorkBookHandle):
 # Check for and remove external links
@@ -51,7 +53,6 @@ def remove_defined_names_from_workbook_xml(excel_file_path):
         workbook_xml_content = zf.read('xl/workbook.xml')
         #print("\n--- New workbook.xml content after modification ---")
         #print(workbook_xml_content.decode('utf-8'))
-
 
 
 def FindLedgerColumn(DataWorkSheet):
@@ -591,7 +592,7 @@ def calculate_value_Budget_IrisRecency(DataWorkSheet, PayrollOrgColumnIndex, Led
     if Category == "Sick Time":
         return calculate_sum_by_category_IrisRecency(DataWorkSheet, SpendCategoryIndex, SiteListIndex, ValuesIndex, SiteName, Category)
     elif Category == "Overtime":
-        return 0.012*calculate_sum_Overtime_Budget_IrisRecency(DataWorkSheet, LedgerColumnIndex, SiteListIndex, ValuesIndex, SiteName)
+        return 0.02*calculate_sum_Overtime_Budget_IrisRecency(DataWorkSheet, LedgerColumnIndex, SiteListIndex, ValuesIndex, SiteName)
     elif Category == "Purchased Hours" or Category == "Purchased Hours total":
         return calculate_sum_by_category_IrisRecency(DataWorkSheet, SpendCategoryIndex, SiteListIndex, ValuesIndex, SiteName, "Purchased Hours")
     elif Category == "6500:Care Supplies":
@@ -605,4 +606,69 @@ def calculate_value_Budget_IrisRecency(DataWorkSheet, PayrollOrgColumnIndex, Led
     else:
         return 0
     
+def _shift_cell_coord(coord_str, shift_cols=1):
+    """Helper to shift a single cell coordinate (e.g., 'C47' or '$C$47') by columns."""
+    match = re.match(r"(\$?)([A-Z]+)(\$?)(\d+)", coord_str, re.IGNORECASE)
+    if not match:
+        raise ValueError(f"Invalid cell coordinate format: {coord_str}")
+
+    abs_col_prefix, col_letter, abs_row_prefix, row_num = match.groups()
+    current_col_idx = column_index_from_string(col_letter)
+    new_col_idx = current_col_idx + shift_cols
+    new_col_letter = get_column_letter(new_col_idx)
+
+    return f"{abs_col_prefix}{new_col_letter}{abs_row_prefix}{row_num}"
     
+    
+def shift_reference_string(reference_string, shift_cols=1):
+    """Shifts an Excel cell reference string (e.g., 'Sheet1!$C$47:$Q$47') one column to the right."""
+    sheet_name_part = ''
+    cell_range_part = reference_string
+
+    # Check for sheet name and extract it
+    if '!' in reference_string:
+        parts = reference_string.split('!', 1)
+        sheet_name_part = parts[0] + '!'
+        cell_range_part = parts[1]
+
+    # Handle range or single cell
+    if ':' in cell_range_part:
+        start_coord, end_coord = cell_range_part.split(':', 1)
+        new_start_coord = _shift_cell_coord(start_coord, shift_cols)
+        new_end_coord = _shift_cell_coord(end_coord, shift_cols)
+        new_cell_range = f"{new_start_coord}:{new_end_coord}"
+    else:
+        new_cell_range = _shift_cell_coord(cell_range_part, shift_cols)
+
+    return f"{sheet_name_part}{new_cell_range}"
+
+
+def move_chart_references_right(worksheet):
+    """
+    Loops through all charts in the given worksheet and moves their data and category
+    references one column to the right.
+
+    Args:
+        worksheet (openpyxl.worksheet.worksheet.Worksheet): The worksheet object to modify.
+
+    Returns:
+        openpyxl.worksheet.worksheet.Worksheet: The modified worksheet object.
+    """
+    if not hasattr(worksheet, '_charts') or not worksheet._charts:
+        return worksheet
+
+    for chart in worksheet._charts:
+        if hasattr(chart, 'series') and chart.series:
+            for series in chart.series:
+                # Data Reference
+                if series.val and hasattr(series.val, 'numRef') and series.val.numRef and series.val.numRef.f:
+                    series.val.numRef.f = shift_reference_string(series.val.numRef.f)
+
+                # Category Reference (could be strRef or numRef)
+                if series.cat:
+                    if hasattr(series.cat, 'strRef') and series.cat.strRef and series.cat.strRef.f:
+                        series.cat.strRef.f = shift_reference_string(series.cat.strRef.f)
+                    elif hasattr(series.cat, 'numRef') and series.cat.numRef and series.cat.numRef.f:
+                        series.cat.numRef.f = shift_reference_string(series.cat.numRef.f)
+
+    return worksheet    
